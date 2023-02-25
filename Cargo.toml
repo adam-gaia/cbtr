@@ -1,0 +1,43 @@
+[package]
+name = "cbtr"
+description = "Check, Build, Test, Run"
+authors = ["Adam Gaia"]
+license-file = "LICENSE"
+readme = "README.md"
+repository = "https://github.com/adam-gaia/cbtr"
+homepage = "https://github.com/adam-gaia/cbtr"
+
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "lib"
+src = "src/lib"
+
+[[bin]]
+name = "c"
+path = "src/bin.rs"
+
+[[bin]]
+name = "b"
+path = "src/bin.rs"
+
+[[bin]]
+name = "t"
+path = "src/bin.rs"
+
+[[bin]]
+name = "r"
+path = "src/bin.rs"
+
+[dependencies]
+anyhow = "1.0.68"
+clap = { version = "4.1.6", features = ["derive"] }
+commandstream = "0.2.0"
+directories = "4.0.1"
+env_logger = "0.10.0"
+gix = "0.37.1"
+log = "0.4.17"
+serde = { version = "1.0.152", features = ["derive"] }
+serde_yaml = "0.9.17"
+tokio = "1.25.0"

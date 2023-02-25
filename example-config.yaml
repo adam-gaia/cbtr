@@ -1,0 +1,65 @@
+---
+settings:
+  indent: "  | "
+targets:
+  - name: just
+    detect:
+      - justfile # TODO: make case insensative?
+    check:
+      - just check
+    build:
+      - just build
+    test:
+      - just test
+    run:
+      - just run
+
+  - name: make
+    detect:
+      - makefile
+    check:
+      - make check
+    build:
+      - make build
+    test:
+      - make test
+    run:
+      - make run
+
+  - name: cargo
+    detect:
+      - Cargo.toml
+    check:
+      - cargo fmt # No cargo-limit version
+      - cargo lcheck
+      - cargo lclippy
+    build:
+      - cargo lbuild
+    test:
+      - cargo ltest
+    run:
+      - cargo lrun
+
+  - name: poetry
+    detect:
+      - pyproject.toml
+    check:
+      - poetry run black
+      - poetry run flake8
+      - poetry run mypy
+    build:
+      - poetry build
+    test:
+      - poetry run pytest
+    run:
+      - poetry run
+
+  - name: nix
+    detect:
+      - flake.nix
+    check:
+      - nix flake check
+    build:
+      - nix build
+    run:
+      - nix run
