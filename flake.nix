@@ -83,7 +83,7 @@
           # Additional arguments specific to this derivation can be added here.
           # Be warned that using `//` will not do a deep copy of nested
           # structures
-          pname = "buildtestrun";
+          pname = "cbtr";
         });
 
       # Run clippy (and deny all warnings) on the crate source,
