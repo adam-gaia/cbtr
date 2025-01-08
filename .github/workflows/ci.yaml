@@ -1,0 +1,81 @@
+name: CI
+permissions:
+  contents: read
+on:
+  pull_request:
+  push:
+    branches:
+      - "main"
+env:
+  RUST_BACKTRACE: 1
+  CARGO_TERM_COLOR: always
+  CLICOLOR: 1
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: git checkout
+        uses: actions/checkout@v4
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+      - name: Set up Nix cache
+        uses: DeterminateSystems/magic-nix-cache-action@main
+      - name: Use nix devshell
+        uses: nicknovitski/nix-develop@v1
+        with:
+          arguments: --impure
+      - name: "nix fmt (with treefmt)"
+        run: nix fmt
+  nix-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: git checkout
+        uses: actions/checkout@v4
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+      - name: Set up Nix cache
+        uses: DeterminateSystems/magic-nix-cache-action@main
+      - name: Use nix devshell
+        uses: nicknovitski/nix-develop@v1
+        with:
+          arguments: --impure
+      - name: nix build
+        run: nix build
+  cargo-build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: git checkout
+        uses: actions/checkout@v4
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+      - name: Set up Nix cache
+        uses: DeterminateSystems/magic-nix-cache-action@main
+      - name: Use nix devshell
+        uses: nicknovitski/nix-develop@v1
+        with:
+          arguments: --impure
+      - name: build
+        run: cargo build --workspace --all-targets
+      - name: test
+        run: cargo nextest run --all-targets
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: git checkout
+        uses: actions/checkout@v4
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+      - name: Set up Nix cache
+        uses: DeterminateSystems/magic-nix-cache-action@main
+      - name: Use nix devshell
+        uses: nicknovitski/nix-develop@v1
+        with:
+          arguments: --impure
+      - name: Coverage
+        run: cargo tarpaulin --output-dir coverage --out lcov
+      - name: Publish to Coveralls
+        # TODO: run tests with 'nix flake check'?
+        run: cargo test
