@@ -128,7 +128,7 @@ struct File {
 #[derive(Debug, Deserialize)]
 struct Entry {
     name: String,
-    bin: StringOrVec,
+    bin: Option<StringOrVec>,
     file: Option<File>,
     tools: Tools,
 }
@@ -192,10 +192,12 @@ fn path_search(cwd: &Path, repo_root: &Path, direction: &Direction, file: &str) 
 
 impl Entry {
     fn matches(&self, cwd: &Path, repo_root: &Path) -> bool {
-        for bin in self.bin.to_vec() {
-            if which::which(&bin).is_err() {
-                debug!("Couldn't find {} on $PATH", bin);
-                return false;
+        if let Some(bin) = &self.bin {
+            for bin in bin.to_vec() {
+                if which::which(&bin).is_err() {
+                    debug!("Couldn't find {} on $PATH", bin);
+                    return false;
+                }
             }
         }
 
