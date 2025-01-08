@@ -8,14 +8,11 @@ use log::info;
 use log::Level;
 use log::{error, warn};
 use owo_colors::OwoColorize;
-use pathdiff::diff_paths;
-use serde::Deserialize;
 use std::env;
 use std::fmt;
 use std::fmt::Display;
 use std::fs;
 use std::io::Write;
-use std::path::Component;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use strum::IntoEnumIterator;
@@ -25,11 +22,11 @@ use tokio_stream::StreamExt;
 use xcommand::StdioType;
 use xcommand::XCommand;
 use xcommand::XStatus;
+mod config;
+use config::Config;
 
 // TODO: make indent configurable
-const INDENT: &'static str = "   ";
-
-// TODO: forget the shell script and write the whole thing in rust
+const INDENT: &str = "   ";
 
 #[derive(Debug, Eq, PartialEq, EnumIter)]
 enum Command {
@@ -79,147 +76,6 @@ impl Display for Command {
     }
 }
 
-#[derive(Deserialize, Debug)]
-#[serde(untagged)]
-enum StringOrVec {
-    Single(String),
-    Multiple(Vec<String>),
-}
-
-impl StringOrVec {
-    fn to_vec(&self) -> Vec<String> {
-        match self {
-            StringOrVec::Single(s) => vec![s.clone()],
-            StringOrVec::Multiple(v) => v.clone(),
-        }
-    }
-}
-
-#[derive(Debug, Deserialize)]
-struct Tools {
-    format: Option<StringOrVec>,
-    check: Option<StringOrVec>,
-    build: Option<StringOrVec>,
-    test: Option<StringOrVec>,
-    run: Option<StringOrVec>,
-}
-
-#[derive(Debug, Deserialize)]
-enum Direction {
-    #[serde(rename = "backwards")]
-    Backwards,
-    #[serde(rename = "forwards")]
-    Forwards,
-}
-
-impl Default for Direction {
-    fn default() -> Self {
-        Direction::Forwards
-    }
-}
-
-#[derive(Debug, Deserialize)]
-struct File {
-    name: StringOrVec,
-    #[serde(rename = "search-direction", default)]
-    search_direction: Direction,
-}
-
-#[derive(Debug, Deserialize)]
-struct Entry {
-    name: String,
-    bin: Option<StringOrVec>,
-    file: Option<File>,
-    tools: Tools,
-}
-
-/// Search from cwd backwards to repo_root
-fn back_search(cwd: &Path, repo_root: &Path, file: &str) -> bool {
-    let mut current_dir = cwd.to_path_buf();
-    loop {
-        let candidate = current_dir.join(file);
-        if candidate.is_file() {
-            debug!("Found {}", candidate.display());
-            return true;
-        }
-
-        if current_dir == repo_root {
-            break;
-        }
-
-        current_dir = current_dir.parent().unwrap().to_path_buf();
-    }
-    false
-}
-
-/// Search from repo_root forward to cwd
-fn forward_search(cwd: &Path, repo_root: &Path, file: &str) -> bool {
-    if let Some(diff) = diff_paths(cwd, repo_root) {
-        let mut path = repo_root.to_path_buf();
-        let candidate = path.join(file);
-        if candidate.is_file() {
-            return true;
-        }
-
-        for component in diff.components() {
-            match component {
-                Component::Normal(s) => {
-                    path = path.join(s);
-                    let candidate = path.join(file);
-                    if candidate.is_file() {
-                        return true;
-                    }
-                }
-                Component::CurDir => {
-                    continue;
-                }
-                _ => {
-                    return false;
-                }
-            }
-        }
-    }
-
-    false
-}
-
-fn path_search(cwd: &Path, repo_root: &Path, direction: &Direction, file: &str) -> bool {
-    match direction {
-        Direction::Backwards => back_search(cwd, repo_root, file),
-        Direction::Forwards => forward_search(cwd, repo_root, file),
-    }
-}
-
-impl Entry {
-    fn matches(&self, cwd: &Path, repo_root: &Path) -> bool {
-        if let Some(bin) = &self.bin {
-            for bin in bin.to_vec() {
-                if which::which(&bin).is_err() {
-                    debug!("Couldn't find {} on $PATH", bin);
-                    return false;
-                }
-            }
-        }
-
-        if let Some(file) = &self.file {
-            let direction = &file.search_direction;
-            for file in file.name.to_vec() {
-                if !path_search(cwd, repo_root, direction, &file) {
-                    return false;
-                }
-            }
-        }
-
-        true
-    }
-}
-
-#[derive(Debug, Deserialize)]
-struct Config {
-    #[serde(rename = "entry")]
-    entries: Vec<Entry>,
-}
-
 fn repo_root(cwd: &Path) -> Result<PathBuf> {
     let repo = gix::discover(cwd)?;
     let git_dir = repo.path();
@@ -254,6 +110,27 @@ async fn run(cmd: &str, args: &[&str]) -> Result<i32> {
         bail!("Process was expected to have finished");
     };
     Ok(code)
+}
+
+fn user_config() -> Result<Config> {
+    let Some(proj_dirs) = ProjectDirs::from("", "", "cbtr") else {
+        bail!("Couldn't find proj dirs");
+    };
+
+    // TODO: config dir should contain multiple tomls, where each toml could share the same 'entry.file' or 'entry.bin'
+    let config_dir = proj_dirs.config_dir();
+    if !config_dir.is_dir() {
+        fs::create_dir_all(config_dir)?;
+    }
+
+    let config_file = config_dir.join("config.toml");
+    if !config_file.is_file() {
+        bail!("Please create a cbtr config at {}", config_file.display());
+    };
+
+    let contents = fs::read_to_string(&config_file)?;
+    let config: Config = toml::from_str(&contents)?;
+    Ok(config)
 }
 
 #[tokio::main]
@@ -302,33 +179,13 @@ async fn main() -> Result<()> {
         );
         std::process::exit(2);
     };
-    let Ok(command) = Command::from_str(&program_name) else {
+    let Ok(command) = Command::from_str(program_name) else {
         error!(
             "cbtr multicall program invoked with unexpected name '{}'. Valid options are {}",
             program_name, options
         );
         std::process::exit(2);
     };
-
-    let Some(proj_dirs) = ProjectDirs::from("", "", "cbtr") else {
-        error!("Couldn't find proj dirs");
-        std::process::exit(1);
-    };
-
-    // TODO: config dir should contain multiple tomls, where each toml could share the same 'entry.file' or 'entry.bin'
-    let config_dir = proj_dirs.config_dir();
-    if !config_dir.is_dir() {
-        fs::create_dir_all(&config_dir)?;
-    }
-
-    let config_file = config_dir.join("config.toml");
-    if !config_file.is_file() {
-        error!("Please create a cbtr config at {}", config_file.display());
-        std::process::exit(1);
-    };
-
-    let contents = fs::read_to_string(&config_file)?;
-    let config: Config = toml::from_str(&contents)?;
 
     let cwd = env::current_dir()?;
     let root = match repo_root(&cwd) {
@@ -337,6 +194,34 @@ async fn main() -> Result<()> {
             // Fall back to cwd if we aren't working in a git repo
             warn!("Current dir is not within a git repo. Using CWD as repo root");
             cwd.clone()
+        }
+    };
+
+    let repo_config_file = root.join(".cbtr.toml");
+    let repo_config = if repo_config_file.is_file() {
+        let contents = fs::read_to_string(&repo_config_file)?;
+        let config: Config = toml::from_str(&contents)?;
+        Some(config)
+    } else {
+        None
+    };
+
+    let user_config = match user_config() {
+        Ok(config) => Some(config),
+        Err(_) => None,
+    };
+
+    let config = match (repo_config, user_config) {
+        (Some(mut repo_config), Some(user_config)) => {
+            repo_config.append(user_config);
+            repo_config
+        }
+        (Some(config), None) => config,
+        (None, Some(config)) => config,
+        (None, None) => {
+            //
+            error!("Could not find config file");
+            std::process::exit(1);
         }
     };
 
