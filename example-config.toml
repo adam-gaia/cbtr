@@ -1,0 +1,64 @@
+[[entry]]
+name = "just"
+bin = "just"
+file.name = "justfile"
+file.search-direction = "backwards"
+tools.format = "just format"
+tools.check = "just check"
+tools.build = "just build"
+tools.test = "just test"
+tools.run = "just run"
+
+[[entry]]
+name = "make"
+file.name = "makefile"
+tools.format = "make format"
+tools.check = "make check"
+tools.build = "make build"
+tools.test = "make test"
+tools.run = "make run"
+
+[[entry]]
+name = "cargo-nextest"
+bin = "cargo-nextest"
+file.name = "Cargo.toml"
+tools.test = "cargo nextest run"
+
+[[entry]]
+name = "cargo-limit"
+bin = "cargo-lcheck"
+file.name = "Cargo.toml"
+file.search-direction = "backwards"
+tools.check = ["cargo lcheck", "cargo lclippy"]
+tools.build = "cargo lbuild"
+tools.test = "cargo ltest"
+tools.run = "cargo lrun"
+
+[[entry]]
+name = "rust"
+bin = "cargo"
+file.name = "Cargo.toml"
+file.search-direction = "backwards"
+tools.format = "cargo fmt"
+tools.check = ["cargo check", "cargo clippy"]
+tools.build = "cargo build"
+tools.run = "cargo run"
+
+[[entry]]
+name = "python-poetry"
+bin = ["poetry", "ruff", "pytest"]
+file.name = "pyproject.toml"
+file.search-direction = "backwards"
+tools.format = "ruff format"
+tools.check = "ruff check"
+tools.build = "poetry build"
+tools.test = "poetry run pytest"
+tools.run = "poetry run"
+
+[[entry]]
+name = "nix"
+file.name = "flake.nix"
+tools.format = "nix fmt"
+tools.check = "nix flake check"
+tools.build = "nix build"
+tools.run = "nix run"

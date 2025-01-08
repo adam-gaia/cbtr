@@ -1,43 +1,27 @@
 [package]
 name = "cbtr"
-description = "Check, Build, Test, Run"
-authors = ["Adam Gaia"]
-license-file = "LICENSE"
-readme = "README.md"
-repository = "https://github.com/adam-gaia/cbtr"
-homepage = "https://github.com/adam-gaia/cbtr"
-
-version = "0.1.0"
+description = "Check, build, test, run"
+version = "0.2.0"
 edition = "2021"
-
-[lib]
-name = "lib"
-src = "src/lib"
-
-[[bin]]
-name = "c"
-path = "src/bin.rs"
-
-[[bin]]
-name = "b"
-path = "src/bin.rs"
-
-[[bin]]
-name = "t"
-path = "src/bin.rs"
-
-[[bin]]
-name = "r"
-path = "src/bin.rs"
+license = "MIT OR Apache-2.0"
+homepage = "https://github.com/adam-gaia/cbtr"
+repository = "https://github.com/adam-gaia/cbtr"
 
 [dependencies]
-anyhow = "1.0.68"
-clap = { version = "4.1.6", features = ["derive"] }
-commandstream = "0.3.0"
-directories = "5.0.0"
-env_logger = "0.11.0"
-gix = "0.66.0"
-log = "0.4.17"
-serde = { version = "1.0.152", features = ["derive"] }
-serde_yaml = "0.9.17"
-tokio = "1.25.0"
+clap = { version = "4.5.24", features = ["derive"] }
+color-eyre = "0.6.3"
+directories = "5.0.1"
+env_logger = "0.11.6"
+gix = "0.69.1"
+log = "0.4.22"
+owo-colors = "4.1.0"
+pathdiff = "0.2.3"
+serde = { version = "1.0.217", features = ["derive"] }
+strum = "0.26.3"
+strum_macros = "0.26.4"
+thiserror = "2.0.9"
+tokio = { version = "1.42.0", features = ["full"] }
+tokio-stream = "0.1.17"
+toml = "0.8.19"
+which = "7.0.1"
+xcommand = "0.1.0"
