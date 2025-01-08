@@ -32,6 +32,7 @@ in
             cargo-limit
             cargo-nextest
             cargo-dist
+            cargo-tarpaulin
             just
             bacon
             oranda
