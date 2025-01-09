@@ -35,15 +35,10 @@ cbtr also supports `f` for commands like `cargo fmt`, but I had already settled 
 
 ## Usage
 
-This crate provides a [multicall binary](https://www.busybox.net/BusyBox.html) called `cbtr`. Running `cbtr` is not very useful as-is:
+This crate provides binary called `cbtr`. Running `cbtr <command>`, as you might have noticed, is yet another `<tool> <command>` for our toolbox. But, `cbtr` is a
+a [multicall binary](https://www.busybox.net/BusyBox.html).
 
-```console
-$ cbtr
-[ERROR] The cbtr program is expected to be invoked as one of [f/format, c/check, b/build, t/test, r/run]
-
-```
-
-Instead, hard/symlink the binary to 'f', 'c', 'b', 't', and 'r' and run using those.
+Instead of running `cbtr` directly, hard/symlink the binary to 'f', 'c', 'b', 't', and 'r' and run those instead.
 
 ```console
 $ ln -s ~/.local/bin/f ./cbtr
@@ -53,16 +48,17 @@ $ ln -s ~/.local/bin/t ./cbtr
 $ ln -s ~/.local/bin/r ./cbtr
 ```
 
-These links are called "applets", a term popularized by [busybox](https://www.busybox.net/BusyBox.html#usage).
+These links are called "applets", a term from [busybox](https://www.busybox.net/BusyBox.html#usage), the most widely known multicall program.
 
-(Fyi: aliasing `alias cbtr=b` won't work because the name of the invoked program is expanded back to 'cbtr'.
-TODO: I'd like to let the program be invoked with 'cbtr <applet>' to act the same as the multicall stuff so that aliasing may be used, i.e. `alias b='cbtr build'`)
+Now, running `b` invokes `cbtr b`, saving us the painstaking process of typing out 'cbtr ' each time. Think of the keystroke savings!
 
-All that is left is to create a config file
+(Fyi: you can also make aliases (e.g `alias b='cbtr b'`) if you prefer. I like the multicall links because its shell agnostic and I tend to switch between zsh and nushell).
+
+All that is left now is to create a config file.
 
 ## Configuring
 
-cbtr rules are defined in a toml file at `~${XDG_CONFIG_HOME}/cbtr/config.toml`.
+cbtr rules are defined in a toml file at `${XDG_CONFIG_HOME}/cbtr/config.toml`.
 The config file is an array of "entries", where each entry defines a set of tools to be ran based on some conditions.
 
 A repo may also contain a config file in the repo root (directory containing the .git dir). The repo-level configuration will be checked first and then the user-level config will be fallen back on.
@@ -77,6 +73,7 @@ file.name = "Cargo.toml" # These rules only apply if a 'Cargo.toml' exists in th
 file.search-direction = "backwards" # Search from CWD backwards to the repo root
 tools.format = "cargo fmt" # 'f' will become a shortcut for 'cargo fmt' 
 tools.build = "cargo build" # b -> cargo build
+tools.test = "cargo test" # t -> cargo test
 tools.run = "cargo run" # r -> cargo run
 tools.check = ["cargo check", "cargo clippy"] # Multiple tools may be ran, in the specified order. If any fail, the rest will not be ran
 ```

@@ -1,4 +1,4 @@
-use clap::Parser;
+use clap::{Args, Parser, Subcommand};
 use color_eyre::eyre::bail;
 use color_eyre::Result;
 use directories::ProjectDirs;
@@ -15,8 +15,6 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
-use strum::IntoEnumIterator;
-use strum_macros::EnumIter;
 use thiserror::Error;
 use tokio_stream::StreamExt;
 use xcommand::StdioType;
@@ -27,53 +25,93 @@ use config::Config;
 
 // TODO: make indent configurable
 const INDENT: &str = "   ";
+const USER_CONFIG_NAME: &str = "config.toml";
+const REPO_CONFIG_NAME: &str = ".cbtr.toml"; // TODO: make configurable
 
-#[derive(Debug, Eq, PartialEq, EnumIter)]
+#[derive(Debug, Args, Clone)]
+struct CommandArgs {
+    /// Print what command would be ran without actually running it
+    #[arg(short, long)]
+    dry_run: bool,
+
+    /// Only search CWD for file rules (do not search between CWD and repo root)
+    #[arg(short, long)]
+    no_searchback: bool,
+}
+
+#[derive(Subcommand, Debug, Clone)]
 enum Command {
-    Format,
-    Check,
-    Build,
-    Test,
-    Run,
+    #[command(id = "f")]
+    Format {
+        #[clap(flatten)]
+        args: CommandArgs,
+    },
+    #[command(id = "c")]
+    Check {
+        #[clap(flatten)]
+        args: CommandArgs,
+    },
+    #[command(id = "b")]
+    Build {
+        #[clap(flatten)]
+        args: CommandArgs,
+    },
+    #[command(id = "t")]
+    Test {
+        #[clap(flatten)]
+        args: CommandArgs,
+    },
+    #[command(id = "r")]
+    Run {
+        #[clap(flatten)]
+        args: CommandArgs,
+    },
+}
+
+impl Command {
+    fn args(&self) -> &CommandArgs {
+        match self {
+            Command::Format { args } => args,
+            Command::Check { args } => args,
+            Command::Build { args } => args,
+            Command::Test { args } => args,
+            Command::Run { args } => args,
+        }
+    }
+}
+
+impl Display for Command {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            Command::Format { args: _ } => "format",
+            Command::Check { args: _ } => "check",
+            Command::Build { args: _ } => "build",
+            Command::Test { args: _ } => "test",
+            Command::Run { args: _ } => "run",
+        };
+        write!(f, "{}", s)
+    }
+}
+
+#[derive(Subcommand, Debug)]
+enum Multicall {
+    #[command(flatten)]
+    Multicall(Command),
+    Cbtr {
+        #[command(subcommand)]
+        command: Command,
+    },
 }
 
 #[derive(Debug, Error)]
 #[error("unexpected command name")]
 struct CommandError {}
 
-impl FromStr for Command {
-    type Err = CommandError;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let command = match s {
-            "f" | "format" => Self::Format,
-            "c" | "check" => Self::Check,
-            "b" | "build" => Self::Build,
-            "t" | "test" => Self::Test,
-            "r" | "run" => Self::Run,
-            _ => return Err(CommandError {}),
-        };
-        Ok(command)
-    }
-}
-
 #[derive(Debug, Parser)]
+#[command(multicall(true))]
 struct Cli {
-    /// Print what command would be ran without actually running it
-    #[clap(short, long)]
-    dry_run: bool,
-}
-
-impl Display for Command {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let s = match self {
-            Command::Format => "f/format",
-            Command::Check => "c/check",
-            Command::Build => "b/build",
-            Command::Test => "t/test",
-            Command::Run => "r/run",
-        };
-        write!(f, "{}", s)
-    }
+    #[command(subcommand)]
+    multicall: Multicall,
 }
 
 fn repo_root(cwd: &Path) -> Result<PathBuf> {
@@ -123,7 +161,7 @@ fn user_config() -> Result<Config> {
         fs::create_dir_all(config_dir)?;
     }
 
-    let config_file = config_dir.join("config.toml");
+    let config_file = config_dir.join(USER_CONFIG_NAME);
     if !config_file.is_file() {
         bail!("Please create a cbtr config at {}", config_file.display());
     };
@@ -154,50 +192,29 @@ async fn main() -> Result<()> {
         .init();
 
     let args = Cli::parse();
-
-    // Check multicall program name
-    // TODO: checkout clap's multicall support
-    let valid_options: Vec<_> = Command::iter().map(|c| c.to_string()).collect();
-    let num_options = valid_options.len();
-    let last_index = num_options - 1;
-    let mut options = String::from("[");
-    for (i, op) in valid_options.iter().enumerate() {
-        options.push_str(op);
-        if i < last_index {
-            options.push_str(", ");
-        }
-    }
-    options.push(']');
-
-    let program = env::args().next().unwrap();
-    let program_path = PathBuf::from(program);
-    let program_name = program_path.file_name().unwrap().to_str().unwrap();
-    if program_name == "cbtr" {
-        error!(
-            "The cbtr program is expected to be invoked as one of {}",
-            options
-        );
-        std::process::exit(2);
+    let command = match &args.multicall {
+        Multicall::Multicall(c) => c,
+        Multicall::Cbtr { command } => command,
     };
-    let Ok(command) = Command::from_str(program_name) else {
-        error!(
-            "cbtr multicall program invoked with unexpected name '{}'. Valid options are {}",
-            program_name, options
-        );
-        std::process::exit(2);
-    };
+    debug!("args: {:?}", args);
+    let args = command.args();
 
     let cwd = env::current_dir()?;
-    let root = match repo_root(&cwd) {
-        Ok(root) => root,
-        Err(_) => {
-            // Fall back to cwd if we aren't working in a git repo
-            warn!("Current dir is not within a git repo. Using CWD as repo root");
-            cwd.clone()
+    let root = if args.no_searchback {
+        // Stop searchback by making repo_root == cwd
+        cwd.clone()
+    } else {
+        match repo_root(&cwd) {
+            Ok(root) => root,
+            Err(_) => {
+                // Fall back to cwd if we aren't working in a git repo
+                warn!("Current dir is not within a git repo. Using CWD as repo root");
+                cwd.clone()
+            }
         }
     };
 
-    let repo_config_file = root.join(".cbtr.toml");
+    let repo_config_file = root.join(REPO_CONFIG_NAME);
     let repo_config = if repo_config_file.is_file() {
         let contents = fs::read_to_string(&repo_config_file)?;
         let config: Config = toml::from_str(&contents)?;
@@ -232,19 +249,19 @@ async fn main() -> Result<()> {
 
         if entry.matches(&cwd, &root) {
             match command {
-                Command::Format => {
+                Command::Format { args: _ } => {
                     tools = entry.tools.format.as_ref();
                 }
-                Command::Check => {
+                Command::Check { args: _ } => {
                     tools = entry.tools.check.as_ref();
                 }
-                Command::Build => {
+                Command::Build { args: _ } => {
                     tools = entry.tools.build.as_ref();
                 }
-                Command::Test => {
+                Command::Test { args: _ } => {
                     tools = entry.tools.test.as_ref();
                 }
-                Command::Run => {
+                Command::Run { args: _ } => {
                     tools = entry.tools.run.as_ref();
                 }
             }

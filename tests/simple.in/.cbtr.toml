@@ -1,0 +1,17 @@
+[[entry]]
+name = "wont-get-ran"
+file.name = "bar"                # Doesn't exist
+tools.format = "echo bar format"
+tools.check = "echo bar check"
+tools.build = "echo bar build"
+tools.test = "echo bar test"
+tools.run = "echo bar run"
+
+[[entry]]
+name = "will-get-ran"
+file.name = "foo"                # Does exist
+tools.format = "echo foo format"
+tools.check = "echo foo check"
+tools.build = "echo foo build"
+tools.test = "echo foo test"
+tools.run = "echo foo run"

@@ -1,0 +1,6 @@
+```
+$ cbtr b --no-searchback
+[INFO] Running 'echo foo build'
+   foo build
+
+```
