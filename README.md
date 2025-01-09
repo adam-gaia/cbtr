@@ -52,7 +52,7 @@ These links are called "applets", a term from [busybox](https://www.busybox.net/
 
 Now, running `b` invokes `cbtr b`, saving us the painstaking process of typing out 'cbtr ' each time. Think of the keystroke savings!
 
-(Fyi: you can also make aliases (e.g `alias b='cbtr b'`) if you prefer. I like the multicall links because its shell agnostic and I tend to switch between zsh and nushell).
+(Fyi: you can also make aliases (e.g `alias b='cbtr b'`) if you prefer. I like the multicall applets because it's shell agnostic and I tend to switch between zsh and nushell).
 
 All that is left now is to create a config file.
 
