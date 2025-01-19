@@ -12,7 +12,7 @@ clap = { version = "4.5.24", features = ["derive"] }
 color-eyre = "0.6.3"
 directories = "5.0.1"
 env_logger = "0.11.6"
-gix = "0.69.1"
+gix = "0.70.0"
 log = "0.4.22"
 owo-colors = "4.1.0"
 pathdiff = "0.2.3"
