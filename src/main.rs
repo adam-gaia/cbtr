@@ -150,7 +150,7 @@ async fn run(cmd: &str, args: &[&str]) -> Result<i32> {
     Ok(code)
 }
 
-fn user_config() -> Result<Config> {
+fn user_config() -> Result<Option<Config>> {
     let Some(proj_dirs) = ProjectDirs::from("", "", "cbtr") else {
         bail!("Couldn't find proj dirs");
     };
@@ -163,12 +163,13 @@ fn user_config() -> Result<Config> {
 
     let config_file = config_dir.join(USER_CONFIG_NAME);
     if !config_file.is_file() {
-        bail!("Please create a cbtr config at {}", config_file.display());
+        warn!("Please create a cbtr config at {}", config_file.display());
+        return Ok(None);
     };
 
     let contents = fs::read_to_string(&config_file)?;
     let config: Config = toml::from_str(&contents)?;
-    Ok(config)
+    Ok(Some(config))
 }
 
 #[tokio::main]
@@ -224,8 +225,10 @@ async fn main() -> Result<()> {
     };
 
     let user_config = match user_config() {
-        Ok(config) => Some(config),
-        Err(_) => None,
+        Ok(config) => config,
+        Err(e) => {
+            bail!("{}", e)
+        }
     };
 
     let config = match (repo_config, user_config) {
